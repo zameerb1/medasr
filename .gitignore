@@ -1,0 +1,33 @@
+# Virtual environments
+venv/
+venv_*/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+
+# IDE
+.idea/
+.vscode/
+
+# Temp files
+*.log
+*.tmp
