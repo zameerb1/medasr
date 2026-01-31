@@ -26,202 +26,99 @@ MedASR is a Conformer-based CTC model with 105M parameters, trained on ~5000 hou
 │  └──────────────┘      │  │ - CTC-based decoding            │    │  │
 │         │              │  └─────────────────────────────────┘    │  │
 │         │              │                                         │  │
-│  ┌──────────────┐      │  Hardware:                              │  │
-│  │  Xcode Dev   │      │  - NVIDIA RTX 4090 (24GB VRAM)          │  │
-│  │   Machine    │      │  - Windows 11                           │  │
-│  └──────────────┘      └─────────────────────────────────────────┘  │
+│  ┌──────────────┐      │  ┌─────────────────────────────────┐    │  │
+│  │ Synology NAS │      │  │ MedGemma Server (Port 8001)     │    │  │
+│  │ 100.94.125.84│      │  │ - google/medgemma-1.5-4b-it     │    │  │
+│  │ (DS1522+)    │      │  │ - Medical image analysis        │    │  │
+│  └──────────────┘      │  └─────────────────────────────────┘    │  │
+│                        │                                         │  │
+│                        │  Hardware:                              │  │
+│                        │  - NVIDIA RTX 4090 (24GB VRAM)          │  │
+│                        │  - Windows 11                           │  │
+│                        └─────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Server Details
+## Devices on Tailscale
 
-### Windows Server Access
+| Device | Tailscale IP | Type | Notes |
+|--------|--------------|------|-------|
+| Mac Mini | 100.122.251.42 | macOS | Development machine |
+| Windows PC (ukpc) | 100.126.157.48 | Windows | GPU server, RTX 4090 |
+| Synology NAS (ds1522plus) | 100.94.125.84 | Linux | DS1522+, DSM 7.2 |
+| iPhone | 100.95.208.110 | iOS | MedASR app testing |
 
-- **Tailscale IP**: 100.126.157.48
-- **Hostname**: ukpc
-- **SSH User**: drsam
-- **SSH Command**: `ssh drsam@100.126.157.48`
+## Windows Server (ukpc)
+
+### SSH Access
+```bash
+ssh drsam@100.126.157.48
+```
+- **Password**: 0786
+- **Auto-login**: Configured
+- **Startup script**: Servers auto-start on boot
+
+### MedGemma Server (Port 8001)
+- **URL**: http://100.126.157.48:8001
+- **Model**: google/medgemma-1.5-4b-it
+- **Web UI**: https://zameerb1.github.io/medgemma-web/
 
 ### MedASR Server (Port 8000)
-
 - **URL**: http://100.126.157.48:8000
-- **Model**: google/medasr (105M parameter CTC model)
-- **Python Environment**: C:\MedASR\server\venv_win
+- **Model**: google/medasr
 
-#### Directory Structure on Windows
-```
-C:\MedASR\
-├── server\
-│   ├── main.py           # FastAPI server (Windows-compatible)
-│   ├── transcribe.py     # MedASR model wrapper with CTC decoding
-│   ├── requirements.txt  # Python dependencies
-│   └── venv_win\         # Python virtual environment
-└── start_server.bat      # Startup script
-```
-
-#### API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Health check |
-| `/health` | GET | Detailed health status (model loaded, device) |
-| `/transcribe` | POST | Transcribe audio file (WAV, M4A, MP3) |
-| `/transcribe/long` | POST | Transcribe longer audio with chunking |
-
-#### Example API Usage
-
+### Start Servers Manually
 ```bash
-# Transcribe audio file
-curl -X POST "http://100.126.157.48:8000/transcribe" \
-  -F "file=@recording.m4a"
-
-# Response
-{
-  "success": true,
-  "text": "The patient presents with symptoms of...",
-  "filename": "recording.m4a"
-}
+ssh -f drsam@100.126.157.48 'cd C:\MedGemma\server && C:\MedGemma\server\venv\Scripts\pythonw.exe -m uvicorn main:app --host 0.0.0.0 --port 8001'
+ssh -f drsam@100.126.157.48 'cd C:\MedASR\server && C:\MedASR\server\venv_win\Scripts\pythonw.exe -m uvicorn main:app --host 0.0.0.0 --port 8000'
 ```
 
-## iOS App
+## Synology NAS (DS1522+)
 
-### Project Structure
-```
-MedASR/
-├── MedASRApp/
-│   ├── MedASRApp.swift          # App entry point
-│   ├── ContentView.swift         # Main UI with record button
-│   ├── AudioRecorder.swift       # AVAudioRecorder wrapper
-│   ├── TranscriptionService.swift # API client
-│   └── Info.plist                # Microphone permission
-└── MedASRApp.xcodeproj/
-```
+### Access
+- **Local IP**: 10.0.7.149
+- **Tailscale IP**: 100.94.125.84
+- **DSM Web**: http://10.0.7.149:5000
+- **SSH Port**: 22 (enabled)
 
-### Features
-- **Record Button** - Tap to start/stop recording
-- **Audio Level Meter** - Visual feedback during recording
-- **Transcription Display** - Scrollable text view with results
-- **Settings** - Configure server URL
-- **Copy/Clear** - Quick actions for transcription text
+### Users
+| Username | Password | 2FA | Notes |
+|----------|----------|-----|-------|
+| CloudDrive | .NDTEguiFyPpgk9WCC4! | Yes (OTP) | Admin group, needs terminal access enabled |
+| synologyinfuse1 | 8YOYBbm80ipAlvLTqTAl | No | Normal user |
 
-### Building the iOS App
-1. Open `MedASRApp.xcodeproj` in Xcode
-2. Select your development team in Signing & Capabilities
-3. Update server URL in Settings to `http://100.126.157.48:8000`
-4. Build and run on device (Simulator can't record real audio)
+### PENDING TASK: Enable SSH for CloudDrive
+The CloudDrive user is in admin group but doesn't have Terminal/SSH application permission.
 
-## Hugging Face Authentication
+**To fix (in DSM web interface):**
+1. Control Panel → User & Group
+2. Click CloudDrive → Edit
+3. Applications tab
+4. Enable "Terminal & SNMP" → Allow
+5. Save
 
-MedASR is a **gated** model and requires:
-1. A Hugging Face account
-2. Accepting the model terms at: https://huggingface.co/google/medasr
-3. HF token configured on the server
-
-**Token Location**: `C:\Users\drsam\.cache\huggingface\token`
-
-## Starting the Server
-
-### Via SSH from Mac
-
+**Then SSH will work:**
 ```bash
-# Start MedASR (port 8000)
-ssh -f drsam@100.126.157.48 'set HF_TOKEN=<your_huggingface_token> && set PATH=C:\ffmpeg-8.0.1-essentials_build\bin;%PATH% && cd C:\MedASR\server && C:\MedASR\server\venv_win\Scripts\pythonw.exe -m uvicorn main:app --host 0.0.0.0 --port 8000'
+sshpass -p '.NDTEguiFyPpgk9WCC4!' ssh CloudDrive@100.94.125.84
 ```
 
-### Check Server Status
-
+### Synology API Login (requires 2FA OTP)
 ```bash
-curl -s http://100.126.157.48:8000/health
+# Step 1: Get OTP prompt
+curl -s "http://10.0.7.149:5000/webapi/auth.cgi?api=SYNO.API.Auth&version=3&method=login&account=CloudDrive&passwd=.NDTEguiFyPpgk9WCC4!&format=sid"
+
+# Step 2: Login with OTP code
+curl -s "http://10.0.7.149:5000/webapi/auth.cgi?api=SYNO.API.Auth&version=3&method=login&account=CloudDrive&passwd=.NDTEguiFyPpgk9WCC4!&format=sid&otp_code=XXXXXX"
 ```
 
-### Stop Server
+## Hugging Face Token
+- **Location on Windows**: C:\Users\drsam\.cache\huggingface\token
+- Both MedGemma and MedASR are gated models requiring HF authentication
 
-```bash
-ssh drsam@100.126.157.48 'taskkill /F /IM pythonw.exe'
-```
+## MCP Servers Configured
+- **Playwright**: Browser automation (just added, requires Claude Code restart)
 
-## Dependencies on Windows
-
-### Python 3.11
-- Location: `C:\Program Files\Python311\`
-
-### FFmpeg (for audio conversion)
-- Location: `C:\ffmpeg-8.0.1-essentials_build\bin\`
-- Required for converting M4A to WAV
-
-### PyTorch with CUDA 12.1
-- Installed in venv
-- Uses RTX 4090 GPU
-
-## CTC Decoding Implementation
-
-MedASR is a CTC (Connectionist Temporal Classification) model, not a sequence-to-sequence model like Whisper. Key implementation details:
-
-```python
-# CTC decoding: collapse repeated tokens and remove blanks
-blank_id = self.processor.tokenizer.pad_token_id or 0
-
-collapsed_ids = []
-prev_id = None
-for token_id in predicted_ids[0].tolist():
-    if token_id != blank_id and token_id != prev_id:
-        collapsed_ids.append(token_id)
-    prev_id = token_id
-
-text = self.processor.tokenizer.decode(collapsed_ids, skip_special_tokens=True)
-```
-
-This manual CTC collapse fixes the stuttering/duplication issue where output would show "I I I amm goinging" instead of "I am going".
-
-## Known Issues & Solutions
-
-### 1. CTC Token Duplication
-Without proper CTC decoding, output shows repeated tokens. The `transcribe.py` includes manual token collapse to fix this.
-
-### 2. Windows File Locking
-Windows can lock temp files during processing. The server uses `shutil.rmtree(ignore_errors=True)` to handle this.
-
-### 3. iOS Simulator Cannot Record
-The iOS Simulator records silent audio files. Test on a real iPhone device.
-
-### 4. First Request Latency
-- First request: ~30 seconds (downloads and loads model)
-- Subsequent requests: Fast
-
-### 5. Audio Format Conversion
-iOS records M4A by default. The server uses FFmpeg + pydub to convert to 16kHz WAV as required by MedASR.
-
-## Related Projects
-
-- **MedGemma**: Medical image analysis (Port 8001 on same server)
-- **MedGemma Web**: https://zameerb1.github.io/medgemma-web/
-
-## Commands Reference
-
-```bash
-# SSH to Windows
-ssh drsam@100.126.157.48
-
-# Check GPU
-ssh drsam@100.126.157.48 'nvidia-smi'
-
-# List running Python processes
-ssh drsam@100.126.157.48 'tasklist | findstr python'
-
-# Kill all Python processes
-ssh drsam@100.126.157.48 'taskkill /F /IM pythonw.exe'
-
-# Check Tailscale status (Mac)
-/Applications/Tailscale.app/Contents/MacOS/Tailscale status
-```
-
-## Model Information
-
-| Property | Value |
-|----------|-------|
-| Model ID | google/medasr |
-| Architecture | Conformer-based CTC |
-| Parameters | 105M |
-| Training Data | ~5000 hours physician dictations |
-| Sample Rate | 16kHz mono |
-| Improvement | 58% fewer errors than Whisper on medical dictation |
+## GitHub Repos
+- MedGemma: https://github.com/zameerb1/medgemma
+- MedASR: https://github.com/zameerb1/medasr
+- MedGemma Web: https://github.com/zameerb1/medgemma-web
